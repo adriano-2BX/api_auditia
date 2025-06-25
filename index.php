@@ -1,11 +1,11 @@
 <?php
-// ARQUIVO: api/index.php
+// ARQUIVO: index.php
 // API Completa para AuditIA Manager em um único arquivo.
 
 // =================================================================
 // 1. CABEÇALHOS E CONFIGURAÇÃO INICIAL
 // =================================================================
-header("Access-Control-Allow-Origin: *"); // Permite acesso de qualquer origem (ajuste para produção)
+header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Max-Age: 3600");
@@ -24,15 +24,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 /**
  * Estabelece e retorna uma conexão PDO com o banco de dados.
- * As credenciais foram preenchidas conforme fornecido.
  * @return PDO
  */
 function getDbConnection() {
-    $host = 'server.2bx.com.br'; // Host do seu banco de dados
-    $port = '3306';              // Porta do seu banco de dados
-    $dbname = 'auditia_db';      // O nome do seu banco de dados
-    $user = 'root';              // Seu usuário do banco de dados
-    $pass = 'd21d846891a08dfaa82b'; // Sua senha do banco de dados
+    $host = 'server.2bx.com.br';
+    $port = '3306';
+    $dbname = 'auditia_db';
+    $user = 'root';
+    $pass = 'd21d846891a08dfaa82b';
     $charset = 'utf8mb4';
 
     $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=$charset";
@@ -529,13 +528,14 @@ function triggerWebhookEvent($eventName, $payload) {
             curl_close($ch);
         }
     } catch(Exception $e) {
+        // Em um ambiente de produção, seria bom registrar este erro.
         // error_log("Failed to trigger webhooks: " . $e->getMessage());
     }
 }
 
 
 // =================================================================
-// 4. ROTEADOR PRINCIPAL
+// 4. ROTEADOR PRINCIPAL (CORRIGIDO PARA SUBDOMÍNIO)
 // =================================================================
 
 $requestUri = trim($_SERVER['REQUEST_URI'], '/');
@@ -543,18 +543,12 @@ $requestParts = explode('?', $requestUri);
 $path = $requestParts[0];
 $pathParts = explode('/', $path);
 
-// Encontra o endpoint a partir da URL. Assume que a API está em um diretório 'api'.
-$endpointIndex = array_search('api', $pathParts);
-if ($endpointIndex === false) {
-    http_response_code(400);
-    echo json_encode(['error' => "API path not found in URL. Make sure you are accessing via /api/your-endpoint."]);
-    exit;
-}
+// Como a API está na raiz do subdomínio, o endpoint é a primeira parte do caminho.
+$endpoint = $pathParts[0] ?? null;
+$id = $pathParts[1] ?? null;
+$action = $pathParts[2] ?? null;
 
-$endpoint = $pathParts[$endpointIndex + 1] ?? null;
-$id = $pathParts[$endpointIndex + 2] ?? null;
-$action = $pathParts[$endpointIndex + 3] ?? null;
-
+// Lógica de roteamento
 switch ($endpoint) {
     case 'login':
         handleLogin();
@@ -580,9 +574,9 @@ switch ($endpoint) {
     case 'webhooks':
         handleWebhooksRequest($id);
         break;
+    case '': // Raiz da API
     case null:
-        http_response_code(404);
-        echo json_encode(['error' => 'API endpoint not specified.']);
+        echo json_encode(['status' => 'AuditIA API is running']);
         break;
     default:
         http_response_code(404);
