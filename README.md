@@ -131,7 +131,7 @@ Resposta (200 OK):{
   "success": true,
   "reportId": "REP-1672859"
 }
-DELETE /test-cases/{id}Exclui um caso de teste.6. RelatóriosGET /reportsRetorna uma lista de todos os relatórios gerados, com detalhes do projeto, cliente e testador.GET /reports/{id}Retorna um relatório específico. O id aqui é o ID em texto, como "REP-1672859".7. Modelos Personalizados (Custom Templates)GET /custom-templatesRetorna uma lista de todos os modelos de teste personalizados.POST /custom-templatesCria um novo modelo de teste.Corpo da Requisição (JSON):{
+DELETE /test-cases/{id}Exclui um caso de teste.6. RelatóriosGET /reportsRetorna uma lista de todos os relatórios gerados, com detalhes do projeto, cliente e testador.GET /reports/{id}Retorna um relatório específico. O id aqui é o ID em texto, como "REP-1672859".7. Modelos Personalizados (Custom Templates)GET /custom-templatesRetorna uma lista de todos os modelos de teste personalizados.GET /custom-templates/{id}Retorna os detalhes de um modelo de teste específico.POST /custom-templatesCria um novo modelo de teste.Corpo da Requisição (JSON):{
   "name": "Teste de Onboarding Financeiro",
   "description": "Verifica o fluxo de onboarding para novos clientes do setor financeiro.",
   "category": "Financeiro",
@@ -140,11 +140,11 @@ DELETE /test-cases/{id}Exclui um caso de teste.6. RelatóriosGET /reportsRetorna
     { "label": "Ofereceu cartão de crédito?", "type": "select", "options": ["Sim", "Não"] }
   ]
 }
-8. WebhooksGET /webhooksRetorna uma lista de todos os webhooks configurados.POST /webhooksCria um novo webhook.Corpo da Requisição (JSON):{
+PUT /custom-templates/{id}Atualiza um modelo de teste existente.DELETE /custom-templates/{id}Exclui um modelo de teste personalizado.8. WebhooksGET /webhooksRetorna uma lista de todos os webhooks configurados.GET /webhooks/{id}Retorna os detalhes de um webhook específico.POST /webhooksCria um novo webhook.Corpo da Requisição (JSON):{
   "url": "[https://n8n.meudominio.com/webhook/12345](https://n8n.meudominio.com/webhook/12345)",
   "events": ["test_completed", "project_created"]
 }
-Eventos Disponíveis:client_createdproject_createduser_createdtest_createdtest_completedSchema do Banco de DadosEste é o script SQL para criar a estrutura completa do banco de dados.CREATE DATABASE IF NOT EXISTS `auditia_db` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+PUT /webhooks/{id}Atualiza um webhook existente.DELETE /webhooks/{id}Exclui um webhook.Eventos de Webhook Disponíveis:client_createdproject_createduser_createdtest_createdtest_completedSchema do Banco de DadosEste é o script SQL para criar a estrutura completa do banco de dados.CREATE DATABASE IF NOT EXISTS `auditia_db` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `auditia_db`;
 
 CREATE TABLE `clients` (
