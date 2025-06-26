@@ -1,6 +1,0 @@
-# /nixpacks.toml
-
-[phases.start]
-# Comando para iniciar o PHP-FPM em segundo plano
-# e depois iniciar o Nginx com a nossa configuração personalizada.
-cmd = "php-fpm & nginx -c /app/nginx.conf -g 'daemon off;'"
