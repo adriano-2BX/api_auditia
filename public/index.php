@@ -5,15 +5,12 @@
 // 1. CABEÇALHOS E CONFIGURAÇÃO INICIAL
 // =================================================================
 
-// Define a origem permitida. '*' é flexível mas para produção, o ideal é
-// usar o domínio exato do seu front-end.
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Max-Age: 3600");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
-// Responde à requisição pre-flight OPTIONS do navegador.
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
@@ -23,10 +20,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // 2. CONEXÃO COM O BANCO DE DADOS
 // =================================================================
 
-/**
- * Estabelece e retorna uma conexão PDO com o banco de dados.
- * @return PDO
- */
 function getDbConnection() {
     $host = 'server.2bx.com.br';
     $port = '3306';
@@ -46,8 +39,7 @@ function getDbConnection() {
         return new PDO($dsn, $user, $pass, $options);
     } catch (\PDOException $e) {
         http_response_code(500);
-        // Em produção, evite expor detalhes do erro. Logue o erro em um arquivo.
-        // error_log('Database connection failed: ' . $e->getMessage());
+        error_log('Database connection failed: ' . $e->getMessage());
         echo json_encode(['error' => 'Falha na conexão com o banco de dados.']);
         exit;
     }
@@ -57,17 +49,12 @@ function getDbConnection() {
 // 3. FUNÇÃO AUXILIAR PARA TRATAR ENTRADA JSON
 // =================================================================
 
-/**
- * Pega o corpo da requisição, decodifica de JSON para array e valida.
- * Encerra o script com erro 400 se o JSON for inválido.
- * @return array
- */
 function getJsonBody() {
     $data = json_decode(file_get_contents('php://input'), true);
 
     if (json_last_error() !== JSON_ERROR_NONE) {
         http_response_code(400); // Bad Request
-        echo json_encode(['error' => 'JSON inválido: ' . json_last_error_msg()]);
+        echo json_encode(['error' => 'JSON inválido na requisição: ' . json_last_error_msg()]);
         exit;
     }
     return $data ?? [];
@@ -99,7 +86,7 @@ function handleLogin() {
     $user = $stmt->fetch();
 
     if ($user && password_verify($data['password'], $user['password_hash'])) {
-        unset($user['password_hash']); // Nunca retorne o hash da senha
+        unset($user['password_hash']);
         http_response_code(200);
         echo json_encode($user);
     } else {
@@ -126,6 +113,7 @@ function handleClientsRequest($id) {
             break;
         case 'POST':
             $data = getJsonBody();
+            if (empty($data['name'])) { http_response_code(400); echo json_encode(['error' => 'O nome do cliente é obrigatório']); return; }
             $stmt = $pdo->prepare("INSERT INTO clients (name) VALUES (?)");
             $stmt->execute([$data['name']]);
             $newId = $pdo->lastInsertId();
@@ -138,6 +126,7 @@ function handleClientsRequest($id) {
         case 'PUT':
             if (!$id) { http_response_code(400); echo json_encode(['error' => 'ID do cliente é obrigatório']); return; }
             $data = getJsonBody();
+            if (empty($data['name'])) { http_response_code(400); echo json_encode(['error' => 'O nome do cliente é obrigatório']); return; }
             $stmt = $pdo->prepare("UPDATE clients SET name = ? WHERE id = ?");
             $stmt->execute([$data['name'], $id]);
             echo json_encode(['success' => true]);
@@ -146,7 +135,6 @@ function handleClientsRequest($id) {
             if (!$id) { http_response_code(400); echo json_encode(['error' => 'ID do cliente é obrigatório']); return; }
             $pdo->beginTransaction();
             try {
-                // Adicione aqui a lógica para deletar dados relacionados se necessário
                 $pdo->prepare("DELETE FROM clients WHERE id = ?")->execute([$id]);
                 $pdo->commit();
                 echo json_encode(['success' => true]);
@@ -182,6 +170,14 @@ function handleProjectsRequest($id) {
             break;
         case 'POST':
             $data = getJsonBody();
+            $required = ['name', 'clientId', 'whatsappNumber', 'description', 'objective'];
+            foreach($required as $field) {
+                if (empty($data[$field])) {
+                    http_response_code(400);
+                    echo json_encode(['error' => "Campo obrigatório em falta: $field"]);
+                    return;
+                }
+            }
             $sql = "INSERT INTO projects (name, clientId, whatsappNumber, description, objective) VALUES (?, ?, ?, ?, ?)";
             $stmt = $pdo->prepare($sql);
             $stmt->execute([$data['name'], $data['clientId'], $data['whatsappNumber'], $data['description'], $data['objective']]);
@@ -232,6 +228,7 @@ function handleUsersRequest($id) {
             break;
         case 'POST':
             $data = getJsonBody();
+            if (empty($data['password'])) { http_response_code(400); echo json_encode(['error' => 'O campo password é obrigatório']); return; }
             $password_hash = password_hash($data['password'], PASSWORD_DEFAULT);
             $sql = "INSERT INTO users (name, email, role, password_hash) VALUES (?, ?, ?, ?)";
             $stmt = $pdo->prepare($sql);
@@ -303,22 +300,19 @@ function handleTestsRequest($id, $action) {
             }
             break;
         case 'POST':
-            // Rota: POST /test_cases/{id}/execute
             if ($id && $action === 'execute') {
                 executeTest($pdo, $id);
-            } 
-            // Rota: POST /test_cases
-            else {
+            } else if (!$id) {
                 createTest($pdo);
+            } else {
+                 http_response_code(400); echo json_encode(['error' => 'Ação inválida para POST com ID. Use /execute para executar.']);
             }
             break;
         case 'PUT':
-            // Rota: PUT /test_cases/{id}
             if (!$id) { http_response_code(400); echo json_encode(['error' => 'ID do Caso de Teste é obrigatório']); return; }
             updateTest($pdo, $id);
             break;
         case 'DELETE':
-            // Rota: DELETE /test_cases/{id}
             if (!$id) { http_response_code(400); echo json_encode(['error' => 'ID do Caso de Teste é obrigatório']); return; }
             $stmt = $pdo->prepare("DELETE FROM test_cases WHERE id = ?");
             $stmt->execute([$id]);
@@ -333,6 +327,15 @@ function handleTestsRequest($id, $action) {
 
 function createTest($pdo) {
     $data = getJsonBody();
+    $required = ['typeId', 'projectId', 'assignedTo'];
+    foreach($required as $field) {
+        if (empty($data[$field])) {
+            http_response_code(400);
+            echo json_encode(['error' => "Campo obrigatório para criar teste em falta: $field"]);
+            return;
+        }
+    }
+
     $testId = 'TEST-' . time();
     $sql = "INSERT INTO test_cases (id, typeId, projectId, status, assignedTo, customFields, pausedState) VALUES (?, ?, ?, 'pending', ?, ?, null)";
     $stmt = $pdo->prepare($sql);
@@ -351,6 +354,12 @@ function createTest($pdo) {
 
 function updateTest($pdo, $id) {
     $data = getJsonBody();
+    if (!isset($data['status']) || !isset($data['pausedState'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Os campos status e pausedState são obrigatórios para a atualização.']);
+        return;
+    }
+
     $sql = "UPDATE test_cases SET status = ?, pausedState = ? WHERE id = ?";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$data['status'], json_encode($data['pausedState']), $id]);
@@ -359,18 +368,32 @@ function updateTest($pdo, $id) {
 
 function executeTest($pdo, $id) {
     $data = getJsonBody();
+    if (empty($data['userId']) || !isset($data['results'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Os campos userId e results são obrigatórios para executar o teste.']);
+        return;
+    }
+
     $pdo->beginTransaction();
     try {
-        $stmt = $pdo->prepare("UPDATE test_cases SET status = 'completed', pausedState = null WHERE id = ?");
-        $stmt->execute([$id]);
-
+        // Verifica se o caso de teste existe
         $stmt = $pdo->prepare("SELECT projectId FROM test_cases WHERE id = ?");
         $stmt->execute([$id]);
         $testCase = $stmt->fetch();
+        if (!$testCase) {
+            throw new Exception("Caso de Teste com ID $id não encontrado.", 404);
+        }
 
+        // Verifica se o projeto existe
         $stmt = $pdo->prepare("SELECT clientId FROM projects WHERE id = ?");
         $stmt->execute([$testCase['projectId']]);
         $project = $stmt->fetch();
+        if (!$project) {
+            throw new Exception("Projeto com ID {$testCase['projectId']} não encontrado.", 404);
+        }
+        
+        $stmt = $pdo->prepare("UPDATE test_cases SET status = 'completed', pausedState = null WHERE id = ?");
+        $stmt->execute([$id]);
 
         $reportId = 'REP-' . time();
         $sql = "INSERT INTO reports (id, testCaseId, testerId, clientId, projectId, executionDate, results) VALUES (?, ?, ?, ?, ?, NOW(), ?)";
@@ -389,7 +412,8 @@ function executeTest($pdo, $id) {
         echo json_encode(['success' => true, 'reportId' => $reportId]);
     } catch (Exception $e) {
         $pdo->rollBack();
-        http_response_code(500);
+        $code = $e->getCode() == 404 ? 404 : 500;
+        http_response_code($code);
         echo json_encode(['error' => 'Falha ao executar o teste.', 'details' => $e->getMessage()]);
     }
 }
@@ -555,8 +579,6 @@ function handleWebhooksRequest($id) {
 function triggerWebhookEvent($eventName, $payload) {
     try {
         $pdo = getDbConnection();
-        // Usar JSON_CONTAINS é específico do MySQL 5.7+. Para compatibilidade maior,
-        // um LIKE '%"event"%' pode ser usado, mas é menos performático.
         $stmt = $pdo->prepare("SELECT url FROM webhooks WHERE JSON_CONTAINS(events, :event)");
         $stmt->execute([':event' => '"'.$eventName.'"']);
         $webhooks = $stmt->fetchAll(PDO::FETCH_COLUMN);
@@ -565,7 +587,7 @@ function triggerWebhookEvent($eventName, $payload) {
             $ch = curl_init($url);
             $body = json_encode([
                 'event' => $eventName,
-                'triggeredAt' => date('c'), // Formato ISO 8601
+                'triggeredAt' => date('c'),
                 'payload' => $payload
             ]);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -574,13 +596,10 @@ function triggerWebhookEvent($eventName, $payload) {
             curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'Content-Length: ' . strlen($body)]);
             curl_setopt($ch, CURLOPT_TIMEOUT, 10);
             curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
-            // Executa a requisição de forma assíncrona para não bloquear o fluxo principal
             curl_exec($ch);
-            // Verifique curl_error($ch) se precisar debugar
             curl_close($ch);
         }
     } catch(Exception $e) {
-        // Em um ambiente de produção, é crucial registrar este erro.
         error_log("Falha ao disparar webhooks para o evento {$eventName}: " . $e->getMessage());
     }
 }
@@ -593,19 +612,12 @@ function triggerWebhookEvent($eventName, $payload) {
 $requestUri = trim($_SERVER['REQUEST_URI'], '/');
 $requestParts = explode('?', $requestUri);
 $path = $requestParts[0];
-
-// Remove o nome de um possível subdiretório se a API não estiver na raiz do domínio.
-// Ex: se a URL for "domain.com/api/clients", e o index.php estiver em /api/
-// $path será "clients". Ajuste 'NOME_DO_DIRETORIO_DA_API' se necessário.
-// $path = str_replace('NOME_DO_DIRETORIO_DA_API/', '', $path);
-
 $pathParts = explode('/', $path);
 
 $endpoint = $pathParts[0] ?? null;
 $id = $pathParts[1] ?? null;
 $action = $pathParts[2] ?? null;
 
-// Lógica de roteamento
 switch ($endpoint) {
     case 'login':
         handleLogin();
@@ -619,15 +631,15 @@ switch ($endpoint) {
     case 'users':
         handleUsersRequest($id);
         break;
-    // CORRIGIDO: de 'test-cases' para 'test_cases' para consistência
-    case 'test_cases': 
+    // CORRIGIDO: Voltando para 'test-cases' com hífen, conforme o original.
+    case 'test-cases': 
         handleTestsRequest($id, $action);
         break;
     case 'reports':
         handleReportsRequest($id);
         break;
-    // CORRIGIDO: de 'custom-templates' para 'custom_templates' para consistência
-    case 'custom_templates':
+    // CORRIGIDO: Voltando para 'custom-templates' com hífen, conforme o original.
+    case 'custom-templates':
         handleTemplatesRequest($id);
         break;
     case 'webhooks':
