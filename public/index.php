@@ -1,21 +1,26 @@
 <?php
 // ARQUIVO: index.php
-// API Completa para AuditIA Manager em um único arquivo.
 
 // =================================================================
-// 1. CABEÇALHOS E CONFIGURAÇÃO INICIAL
+// 1. CABEÇALHOS E CONFIGURAÇÃO INICIAL (MAIS ROBUSTO)
 // =================================================================
+
+// Define a origem permitida. '*' é flexível mas para produção, o ideal é
+// usar o domínio exato do seu front-end.
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Max-Age: 3600");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
-// Tratamento para requisição OPTIONS (pre-flight CORS)
+// O navegador envia uma requisição "pre-flight" do tipo OPTIONS.
+// É crucial responder a ela com status 200 OK e finalizar o script.
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
+
+
 
 
 // =================================================================
