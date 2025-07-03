@@ -21,11 +21,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // =================================================================
 
 function getDbConnection() {
-    $host = '116.203.134.255';
-    $port = '3307';
+    $host = 'server.2bx.com.br';
+    $port = '3306';
     $dbname = 'auditia_db';
     $user = 'root';
-    $pass = 'd986d0eb390ac190ca6d';
+    $pass = 'd21d846891a08dfaa82b';
     $charset = 'utf8mb4';
 
     $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=$charset";
